@@ -42,12 +42,12 @@ namespace Raytracer {
 // Naive ray tracing: Intersects the ray with every primitive
 // in the scene to determine the closest intersection
 // -----------------------------------------------------------
-    Primitive *Engine::Raytrace(Ray &a_Ray, vector3 &a_Acc, int a_Depth, float a_RIndex) {
+    Primitive *Engine::Raytrace(Ray a_Ray, Color &a_Acc, int a_Depth, float a_RIndex, float &a_Dist) {
         if (a_Depth > TRACEDEPTH) {
             return 0;
         }
         // trace primary ray
-        float a_Dist = 1000000.0f;
+        a_Dist = 1000000.0f;
 
         //point of intersection
         vector3 pi;
@@ -97,28 +97,35 @@ namespace Raytracer {
                         Ray r(d, L);
                         for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
                             Primitive *pr = m_Scene->GetPrimitive(s);
-                            if (pr != light
-                                    && pr->Intersect(r, tdist)) {
+                            if ((pr != light)
+                                    && (pr->Intersect(r, tdist))) {
                                 shade = 0;
                                 break;
                             }
 
                         }
                     }
-                    // calculate diffuse shading
-                    if (prim->getMaterial()->GetDiffuse() > 0) {
-                        float dot = DOT(N, L);
-                        if (dot > 0) {
-                            float diff = dot * prim->getMaterial()->GetDiffuse() * shade;
-                            // add diffuse component to ray color
-                            a_Acc += diff * prim->getMaterial()->GetColor() * light->getMaterial()->GetColor();
+                    if (shade > 0) {
+
+                        // calculate diffuse shading
+                        if (prim->getMaterial()->GetDiffuse() > 0) {
+                            float dot = DOT(N, L);
+                            if (dot > 0) {
+                                float diff = dot * prim->getMaterial()->GetDiffuse() * shade;
+                                // add diffuse component to ray color
+                                a_Acc += diff * prim->getMaterial()->GetColor() * light->getMaterial()->GetColor();
+                            }
                         }
-                    }
-                    vector3 R = L - 2.0f * DOT(L, N) * N;
-                    float dot = DOT(R, V);
-                    if (dot > 0) {
-                        float spec = powf(dot, prim->getMaterial()->getShiny()) * prim->getMaterial()->GetSpecular() * shade;
-                        a_Acc += spec * light->getMaterial()->GetColor();
+
+                        if (prim->getMaterial()->GetSpecular() > 0) {
+                            vector3 R = L - 2.0f * DOT(L, N) * N;
+                            float dot = DOT(R, V);
+                            if (dot > 0) {
+                                float spec = powf(dot, prim->getMaterial()->getShiny()) * prim->getMaterial()->GetSpecular() * shade;
+                                a_Acc += spec * light->getMaterial()->GetColor();
+                            }
+                        }
+
                     }
                 }
             }
@@ -130,24 +137,30 @@ namespace Raytracer {
                 vector3 R = V - 2.0f * DOT(V, N) * N;
                 vector3 origin = pi + R * EPSILON;
                 Ray ray = Ray(origin, R);
-                Raytrace(ray, rcol, a_Depth + 1, a_RIndex);
+                float dist;
+                Raytrace(ray, rcol, a_Depth + 1, a_RIndex, dist);
                 a_Acc += refl * rcol * prim->getMaterial()->GetColor();
             }
 
             float refr = prim->getMaterial()->getRefraction();
             float rindex = prim->getMaterial()->getRefrIndex();
-            if(refr > 0.0f && rindex > 0.0f){
+            if (refr > 0.0f && rindex > 0.0f) {
                 float n = a_RIndex / rindex;
                 N = N * result;
                 float cosI = -DOT(N, V);
                 float cosT2 = 1.0f - n * n * (1 - cosI * cosI);
-                if (cosT2 > 0.0f){
+                if (cosT2 > 0.0f) {
                     vector3 T = (n * V) + (n * cosI - sqrt(cosT2)) * N;
                     Color rcol;
                     vector3 d = pi + T * EPSILON;
                     Ray ray = Ray(d, T);
-                    Raytrace(ray, rcol, a_Depth + 1, rindex);
-                    a_Acc += rcol;
+                    float dist;
+                    Raytrace(ray, rcol, a_Depth + 1, rindex, dist);
+                    Color absorbance = prim->getMaterial()->GetColor() * 0.15f * -dist;
+                    Color transparency = Color(expf(absorbance.r),
+                            expf(absorbance.g),
+                            expf(absorbance.b));
+                    a_Acc += rcol * transparency;
                 }
             }
         }
@@ -199,11 +212,31 @@ namespace Raytracer {
                 vector3 dir = vector3(m_SX, m_SY, 0) - o;
                 NORMALIZE(dir);
                 Ray r(o, dir);
-                Primitive *prim = Raytrace(r, acc, 1, 1.0f);
-                int red = (int) (acc.r * 256);
-                int green = (int) (acc.g * 256);
-                int blue = (int) (acc.b * 256);
-
+                float dist;
+                Primitive *prim = Raytrace(r, acc, 1, 1.0f, dist);
+                int red;
+                int green;
+                int blue;
+                if (prim == lastprim) {
+                    red = (int) (acc.r * 256);
+                    green = (int) (acc.g * 256);
+                    blue = (int) (acc.b * 256);
+                } else {
+                    lastprim = prim;
+                    Color acc(0, 0, 0);
+                    for (int tx = -1; tx < 2; tx++) {
+                        for (int ty = -1; ty < 2; ty++) {
+                            vector3 dir = vector3(m_SX + m_DX * tx / 2.0f, m_SY + m_DY * ty / 2.0f, 0) - o;
+                            NORMALIZE(dir);
+                            Ray r(o, dir);
+                            float dist;
+                            Primitive *prim = Raytrace(r, acc, 1, 1.0f, dist);
+                        }
+                    }
+                    red = (int) (acc.r * (256 / 9));
+                    green = (int) (acc.g * (256 / 9));
+                    blue = (int) (acc.b * (256 / 9));
+                }
                 if (red > 255) {
                     red = 255;
                 }

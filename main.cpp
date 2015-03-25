@@ -5,8 +5,8 @@
 #include "MainWidget.h"
 #include <QApplication>
 
-#define WIDTH 400
-#define HEIGHT 300
+#define WIDTH 800
+#define HEIGHT 600
 
 
 int main(int argc, char *argv[]) {

@@ -31,8 +31,9 @@ namespace Raytracer {
 // -----------------------------------------------------------
 
     Material::Material() :
-            m_Color(Color(0.2f, 0.2f, 0.2f)),
-            m_Refl(0), m_Diff(0.2f) {
+
+            m_Color( Color( 0.2f, 0.2f, 0.2f ) ),
+            m_Refl( 0 ), m_Diff( 0.2f ), specular(0.8f), refrIndex(1.5f) , shiny(20) {
     }
 
 // -----------------------------------------------------------

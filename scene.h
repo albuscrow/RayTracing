@@ -7,6 +7,7 @@
 #define I_SCENE_H
 
 #include "raytracer.h"
+#include "common.h"
 
 namespace Raytracer {
 
@@ -93,7 +94,7 @@ namespace Raytracer {
 // -----------------------------------------------------------
 // Primitive class definition
 // -----------------------------------------------------------
-
+    class Ray;
     class Primitive {
     public:
         enum {

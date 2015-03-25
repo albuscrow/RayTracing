@@ -7,6 +7,7 @@
 #define I_RAYTRACER_H
 
 #include "common.h"
+#include "scene.h"
 #include <QObject>
 
 namespace Raytracer {
@@ -63,7 +64,7 @@ namespace Raytracer {
             return m_Scene;
         }
 
-        Primitive *Raytrace(Ray &a_Ray, Color &a_Acc, int a_Depth, float a_RIndex);
+        Primitive *Raytrace(Ray a_Ray, Color& a_Acc, int a_Depth, float a_RIndex, float& d);
 
         void InitRender();
 
