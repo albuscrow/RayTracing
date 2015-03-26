@@ -64,7 +64,7 @@ namespace Raytracer {
             Material::shiny = shiny;
         }
 
-        void setRefraction(float d){
+        void setRefraction(float d) {
             refraction = d;
         }
 
@@ -80,6 +80,14 @@ namespace Raytracer {
             Material::refrIndex = refrIndex;
         }
 
+        void setDiffuseRefl(float a_DRefl) {
+            m_DRefl = a_DRefl;
+        }
+
+        float getDiffuseRefl() {
+            return m_DRefl;
+        }
+
 
     private:
         Color m_Color;
@@ -89,20 +97,20 @@ namespace Raytracer {
         float refraction;
         float specular;
         float refrIndex;
+        float m_DRefl;
     };
 
 // -----------------------------------------------------------
 // Primitive class definition
 // -----------------------------------------------------------
     class Ray;
+
     class Primitive {
     public:
         enum {
             SPHERE = 1,
-            PLANE
-        };
-
-        Primitive() : m_Name(0), m_Light(false) {
+            PLANE,
+            AABB
         };
 
         Material *getMaterial() {
@@ -113,11 +121,15 @@ namespace Raytracer {
             m_Material = a_Mat;
         }
 
+        Primitive() : m_Name( 0 ), m_Light( false ), m_RayID( -1 ) {};
+
         virtual int GetType() = 0;
 
         virtual int Intersect(Ray &a_Ray, float &a_Dist) = 0;
 
         virtual vector3 GetNormal(vector3 &a_Pos) = 0;
+
+        virtual aabb GetAABB() = 0;
 
         virtual Color GetColor(vector3 &) {
             return m_Material.GetColor();
@@ -137,10 +149,15 @@ namespace Raytracer {
             return m_Name;
         }
 
+        int GetLastRayID() {
+            return m_RayID;
+        }
+
     protected:
         Material m_Material;
         char *m_Name;
         bool m_Light;
+        int m_RayID;
     };
 
 // -----------------------------------------------------------
@@ -172,6 +189,8 @@ namespace Raytracer {
             return (a_Pos - m_Centre) * m_RRadius;
         }
 
+        virtual aabb GetAABB();
+
     private:
         vector3 m_Centre;
         float m_SqRadius, m_Radius, m_RRadius;
@@ -202,9 +221,69 @@ namespace Raytracer {
 
         vector3 GetNormal(vector3 &a_Pos);
 
+        aabb GetAABB() {
+            vector3 pos = vector3( -10000, -10000, -10000 );
+            vector3 size = vector3( 20000, 20000, 20000 );
+            return aabb(pos, size);
+        }
+
     private:
         plane m_Plane;
     };
+
+
+// -----------------------------------------------------------
+// Box primitive class definition
+// -----------------------------------------------------------
+    class Box : public Primitive {
+    public:
+        int GetType() {
+            return AABB;
+        }
+
+        Box();
+
+        Box(aabb &a_Box);
+
+        int Intersect(Ray &a_Ray, float &a_Dist);
+
+        bool IntersectBox(aabb &a_Box) {
+            return m_Box.Intersect(a_Box);
+        }
+
+        vector3 GetNormal(vector3 &);
+
+        bool Contains(vector3 &a_Pos) {
+            return m_Box.Contains(a_Pos);
+        }
+
+        vector3 &GetPos() {
+            return m_Box.GetPos();
+        }
+
+        vector3 &GetSize() {
+            return m_Box.GetSize();
+        }
+
+        float GetGridX(int a_Idx) {
+            return m_Grid[a_Idx << 1];
+        }
+
+        float GetGridY(int a_Idx) {
+            return m_Grid[(a_Idx << 1) + 1];
+        }
+
+        void Light(bool a_Light);
+
+        aabb GetAABB() {
+            return m_Box;
+        }
+
+    protected:
+        aabb m_Box;
+        float *m_Grid;
+    };
+
 
 // -----------------------------------------------------------
 // Scene class definition

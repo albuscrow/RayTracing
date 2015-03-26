@@ -166,6 +166,43 @@ namespace Raytracer {
 
     typedef vector3 Color;
 
+
+    class aabb {
+    public:
+        aabb() : m_Pos(vector3(0, 0, 0)), m_Size(vector3(0, 0, 0)) {
+        };
+
+        aabb(vector3 a_Pos, vector3 a_Size) : m_Pos(a_Pos), m_Size(a_Size) {
+        };
+
+        vector3 &GetPos() {
+            return m_Pos;
+        }
+
+        vector3 &GetSize() {
+            return m_Size;
+        }
+
+        bool Intersect(aabb &b2) {
+            vector3 v1 = b2.GetPos(), v2 = b2.GetPos() + b2.GetSize();
+            vector3 v3 = m_Pos, v4 = m_Pos + m_Size;
+            return ((v4.x > v1.x) && (v3.x < v2.x) && // x-axis overlap
+                    (v4.y > v1.y) && (v3.y < v2.y) && // y-axis overlap
+                    (v4.z > v1.z) && (v3.z < v2.z));   // z-axis overlap
+        }
+
+        bool Contains(vector3 a_Pos) {
+            vector3 v1 = m_Pos, v2 = m_Pos + m_Size;
+            return ((a_Pos.x > (v1.x - EPSILON)) && (a_Pos.x < (v2.x + EPSILON)) &&
+                    (a_Pos.y > (v1.y - EPSILON)) && (a_Pos.y < (v2.y + EPSILON)) &&
+                    (a_Pos.z > (v1.z - EPSILON)) && (a_Pos.z < (v2.z + EPSILON)));
+        }
+
+    private:
+        vector3 m_Pos, m_Size;
+    };
+
+
 }; // namespace Raytracer
 
 #include <time.h>

@@ -13,7 +13,7 @@ using Raytracer::vector3;
 
 namespace Raytracer {
 
-    Ray::Ray(vector3 &a_Origin, vector3 &a_Dir) :
+    Ray::Ray(const vector3 &a_Origin, const vector3 &a_Dir) :
             m_Origin(a_Origin),
             m_Direction(a_Dir) {
     }
@@ -91,20 +91,7 @@ namespace Raytracer {
                     float tdist = LENGTH(L);
                     L *= (1.0f / tdist);
 
-                    float shade = 1.0f;
-                    if (light->GetType() == Primitive::SPHERE) {
-                        vector3 d = pi + L * EPSILON;
-                        Ray r(d, L);
-                        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
-                            Primitive *pr = m_Scene->GetPrimitive(s);
-                            if ((pr != light)
-                                    && (pr->Intersect(r, tdist))) {
-                                shade = 0;
-                                break;
-                            }
-
-                        }
-                    }
+                    float shade = calShade(light, tdist, pi, L);
                     if (shade > 0) {
 
                         // calculate diffuse shading
@@ -167,6 +154,43 @@ namespace Raytracer {
         // return pointer to primitive hit by primary ray
         return prim;
     }
+
+    float Engine::calShade(Primitive *light, const float tdist, const vector3 &pi, vector3 &L) {
+        float shade = 1.0f;
+        if (light->GetType() == Primitive::SPHERE) {
+            vector3 d = pi + L * EPSILON;
+            Ray r(d, L);
+            Primitive *prim = findNearest(light, r, tdist);
+            if (prim != light) {
+                shade = 0;
+            }
+        } else if (light->GetType() == Primitive::AABB) {
+            shade = 0;
+            Box *b = (Box *) light;
+            L = b->GetPos() + 0.5f * b->GetSize() - pi;
+            NORMALIZE(L);
+
+            float deltaX = b->GetSize().x / 4;
+            float deltaZ = b->GetSize().z / 4;
+
+            for (int x = 0; x < 4; ++x) {
+                for (int z = 0; z < 4; ++z) {
+                    vector3 lp(b->GetPos().x + (x + m_Twister.myRand()) * deltaX, b->GetPos().y,
+                            b->GetPos().z + (z + m_Twister.myRand()) * deltaZ);
+                    vector3 dir = lp - pi;
+                    float ldist = LENGTH(dir);
+                    dir *= 1.0f / ldist;
+                    vector3 origin = pi + dir * EPSILON;
+                    Primitive *prim = findNearest(light, Ray(origin, dir), tdist);
+                    if (prim == light) {
+                        shade += 1.0f / 16;
+                    }
+                }
+            }
+        }
+        return shade;
+    }
+
 
 // -----------------------------------------------------------
 // Engine::InitRender
@@ -233,9 +257,9 @@ namespace Raytracer {
                             Primitive *prim = Raytrace(r, acc, 1, 1.0f, dist);
                         }
                     }
-                    red = (int) (acc.r * (256 / 9));
-                    green = (int) (acc.g * (256 / 9));
-                    blue = (int) (acc.b * (256 / 9));
+                    red = (int) (acc.r * (256.0f / 9));
+                    green = (int) (acc.g * (256.0f / 9));
+                    blue = (int) (acc.b * (256.0f / 9));
                 }
                 if (red > 255) {
                     red = 255;
@@ -259,4 +283,14 @@ namespace Raytracer {
         return true;
     }
 
+    Primitive *Engine::findNearest(Primitive *light, Ray r, float tdist) {
+        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
+            Primitive *prim = m_Scene->GetPrimitive(s);
+            if ((prim != light)
+                    && (prim->Intersect(r, tdist))) {
+                return prim;
+            }
+        }
+        return light;
+    }
 }; // namespace Raytracer

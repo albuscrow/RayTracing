@@ -6,6 +6,7 @@
 #ifndef I_RAYTRACER_H
 #define I_RAYTRACER_H
 
+#include "twister.h"
 #include "common.h"
 #include "scene.h"
 #include <QObject>
@@ -20,7 +21,7 @@ namespace Raytracer {
         Ray() : m_Origin(vector3(0, 0, 0)), m_Direction(vector3(0, 0, 0)) {
         };
 
-        Ray(vector3 &a_Origin, vector3 &a_Dir);
+        Ray(const vector3 &a_Origin,const vector3 &a_Dir);
 
         void SetOrigin(const vector3 &a_Origin) {
             m_Origin = a_Origin;
@@ -38,9 +39,13 @@ namespace Raytracer {
             return m_Direction;
         }
 
+        void SetID( int a_ID ) { m_ID = a_ID; }
+        int GetID() { return m_ID; }
+
     private:
         vector3 m_Origin;
         vector3 m_Direction;
+        int m_ID;
     };
 
 // -----------------------------------------------------------
@@ -77,6 +82,9 @@ namespace Raytracer {
         Pixel *m_Dest;
         int m_Width, m_Height, m_CurrLine, m_PPos;
         Primitive **m_LastRow;
+        float calShade(Primitive *light, const float tdist,const vector3 &pi, vector3 &L);
+        Primitive *findNearest(Primitive *, Ray, float);
+        Twister m_Twister;
 
     signals:
 
