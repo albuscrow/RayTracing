@@ -33,7 +33,7 @@ namespace Raytracer {
     Material::Material() :
 
             m_Color(Color(0.2f, 0.2f, 0.2f)),
-            m_Refl(0), m_Diff(0.2f), specular(0.8f), refrIndex(1.5f), shiny(20) {
+            m_Refl(0), m_Diff(0.2f), specular(0.8f), refrIndex(1.5f), shiny(20), m_DRefl(0) {
     }
 
 // -----------------------------------------------------------
@@ -120,6 +120,8 @@ namespace Raytracer {
         m_Primitive[2]->getMaterial()->setRefrIndex(1.3f);
         m_Primitive[2]->getMaterial()->SetDiffuse(0.1f);
         m_Primitive[2]->getMaterial()->setColor(Color(0.7f, 0.7f, 1.0f));
+        m_Primitive[2]->getMaterial()->setDiffuseRefl(0.5);
+
         // light source 1
         m_Primitive[3] = new Sphere(vector3(0, 5, 5), 0.1f);
         m_Primitive[3]->Light(true);

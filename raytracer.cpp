@@ -108,11 +108,11 @@ namespace Raytracer {
                             vector3 R = L - 2.0f * DOT(L, N) * N;
                             float dot = DOT(R, V);
                             if (dot > 0) {
-                                float spec = powf(dot, prim->getMaterial()->getShiny()) * prim->getMaterial()->GetSpecular() * shade;
+                                float spec = powf(dot, prim->getMaterial()->getShiny()) *
+                                             prim->getMaterial()->GetSpecular() * shade;
                                 a_Acc += spec * light->getMaterial()->GetColor();
                             }
                         }
-
                     }
                 }
             }
@@ -120,13 +120,39 @@ namespace Raytracer {
             //reflect
             float refl = prim->getMaterial()->GetReflection();
             if (refl > 0.0f) {
-                Color rcol(0, 0, 0);
-                vector3 R = V - 2.0f * DOT(V, N) * N;
-                vector3 origin = pi + R * EPSILON;
-                Ray ray = Ray(origin, R);
-                float dist;
-                Raytrace(ray, rcol, a_Depth + 1, a_RIndex, dist);
-                a_Acc += refl * rcol * prim->getMaterial()->GetColor();
+
+                float drefl = prim->getMaterial()->getDiffuseRefl();
+                if ((drefl > 0) && (a_Depth < 2)) {
+                    // calculate diffuse reflection
+                    vector3 N = prim->GetNormal(pi);
+                    vector3 RP = a_Ray.GetDirection() - 2.0f * DOT(a_Ray.GetDirection(), N) * N;
+                    vector3 RN1 = vector3(RP.z, RP.y, -RP.x);
+                    vector3 RN2 = RP.Cross(RN1);
+                    refl *= 1 / 16;
+                    for (int i = 0; i < 16; i++) {
+                        float xoffs, yoffs;
+                        do {
+                            xoffs = m_Twister.Rand() * drefl;
+                            yoffs = m_Twister.Rand() * drefl;
+                        }
+                        while ((xoffs * xoffs + yoffs * yoffs) > (drefl * drefl));
+                        vector3 R = RP + RN1 * xoffs + RN2 * yoffs * drefl;
+                        NORMALIZE(R);
+                        float dist;
+                        Color rcol(0, 0, 0);
+                        Raytrace(Ray(pi + R * EPSILON, R), rcol, a_Depth + 1, a_RIndex, dist);
+                        a_Acc += refl * rcol * prim->getMaterial()->GetColor();
+                    }
+                } else {
+
+                    Color rcol(0, 0, 0);
+                    vector3 R = V - 2.0f * DOT(V, N) * N;
+                    vector3 origin = pi + R * EPSILON;
+                    Ray ray = Ray(origin, R);
+                    float dist;
+                    Raytrace(ray, rcol, a_Depth + 1, a_RIndex, dist);
+                    a_Acc += refl * rcol * prim->getMaterial()->GetColor();
+                }
             }
 
             float refr = prim->getMaterial()->getRefraction();
@@ -145,8 +171,8 @@ namespace Raytracer {
                     Raytrace(ray, rcol, a_Depth + 1, rindex, dist);
                     Color absorbance = prim->getMaterial()->GetColor() * 0.15f * -dist;
                     Color transparency = Color(expf(absorbance.r),
-                            expf(absorbance.g),
-                            expf(absorbance.b));
+                                               expf(absorbance.g),
+                                               expf(absorbance.b));
                     a_Acc += rcol * transparency;
                 }
             }
@@ -176,7 +202,7 @@ namespace Raytracer {
             for (int x = 0; x < 4; ++x) {
                 for (int z = 0; z < 4; ++z) {
                     vector3 lp(b->GetPos().x + (x + m_Twister.myRand()) * deltaX, b->GetPos().y,
-                            b->GetPos().z + (z + m_Twister.myRand()) * deltaZ);
+                               b->GetPos().z + (z + m_Twister.myRand()) * deltaZ);
                     vector3 dir = lp - pi;
                     float ldist = LENGTH(dir);
                     dir *= 1.0f / ldist;
@@ -287,7 +313,7 @@ namespace Raytracer {
         for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
             Primitive *prim = m_Scene->GetPrimitive(s);
             if ((prim != light)
-                    && (prim->Intersect(r, tdist))) {
+                && (prim->Intersect(r, tdist))) {
                 return prim;
             }
         }

@@ -3,6 +3,8 @@
 // 2004 - Jacco Bikker - jacco@bik5.com - www.bik5.com -   <><
 // -----------------------------------------------------------
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedMacroInspection"
 #ifndef I_COMMON_H
 #define I_COMMON_H
 
@@ -12,9 +14,12 @@
 
 typedef unsigned int Pixel;
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 inline float Rand(float a_Range) {
     return ((float) rand() / RAND_MAX) * a_Range;
 }
+#pragma clang diagnostic pop
 
 namespace Raytracer {
 
@@ -26,7 +31,6 @@ namespace Raytracer {
 
 #define EPSILON            0.1f
 #define TRACEDEPTH        6
-
 #define PI                3.141592653589793238462f
 
     class vector3 {
@@ -210,3 +214,5 @@ namespace Raytracer {
 unsigned long GetTickCount();
 
 #endif
+#pragma clang diagnostic pop
+#pragma clang diagnostic pop

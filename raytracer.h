@@ -87,9 +87,7 @@ namespace Raytracer {
         Twister m_Twister;
 
     signals:
-
         void updateScreenSignal(Pixel *);
-
     };
 
 }; // namespace Raytracer
