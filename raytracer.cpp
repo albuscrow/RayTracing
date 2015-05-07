@@ -35,6 +35,12 @@ namespace Raytracer {
         m_Dest = a_Dest;
         m_Width = a_Width;
         m_Height = a_Height;
+        // precalculate 1 / size of a cell (for x, y and z)
+        m_SR.x = GRIDSIZE / m_Scene->GetExtends().GetSize().x;
+        m_SR.y = GRIDSIZE / m_Scene->GetExtends().GetSize().y;
+        m_SR.z = GRIDSIZE / m_Scene->GetExtends().GetSize().z;
+        // precalculate size of a cell (for x, y, and z)
+        m_CW = m_Scene->GetExtends().GetSize() * (1.0f / GRIDSIZE);
     }
 
 // -----------------------------------------------------------
@@ -108,7 +114,8 @@ namespace Raytracer {
                             vector3 R = L - 2.0f * DOT(L, N) * N;
                             float dot = DOT(R, V);
                             if (dot > 0) {
-                                float spec = powf(dot, prim->getMaterial()->getShiny()) * prim->getMaterial()->GetSpecular() * shade;
+                                float spec = powf(dot, prim->getMaterial()->getShiny()) *
+                                             prim->getMaterial()->GetSpecular() * shade;
                                 a_Acc += spec * light->getMaterial()->GetColor();
                             }
                         }
@@ -145,8 +152,8 @@ namespace Raytracer {
                     Raytrace(ray, rcol, a_Depth + 1, rindex, dist);
                     Color absorbance = prim->getMaterial()->GetColor() * 0.15f * -dist;
                     Color transparency = Color(expf(absorbance.r),
-                            expf(absorbance.g),
-                            expf(absorbance.b));
+                                               expf(absorbance.g),
+                                               expf(absorbance.b));
                     a_Acc += rcol * transparency;
                 }
             }
@@ -155,12 +162,15 @@ namespace Raytracer {
         return prim;
     }
 
-    float Engine::calShade(Primitive *light, const float tdist, const vector3 &pi, vector3 &L) {
+    float Engine::calShade(Primitive *light, float tdist, const vector3 &pi, vector3 &L) {
         float shade = 1.0f;
+
+        Primitive *prim;
         if (light->GetType() == Primitive::SPHERE) {
             vector3 d = pi + L * EPSILON;
             Ray r(d, L);
-            Primitive *prim = findNearest(light, r, tdist);
+            Primitive *prim;
+            FindNearest(r, tdist, prim);
             if (prim != light) {
                 shade = 0;
             }
@@ -176,12 +186,14 @@ namespace Raytracer {
             for (int x = 0; x < 4; ++x) {
                 for (int z = 0; z < 4; ++z) {
                     vector3 lp(b->GetPos().x + (x + m_Twister.myRand()) * deltaX, b->GetPos().y,
-                            b->GetPos().z + (z + m_Twister.myRand()) * deltaZ);
+                               b->GetPos().z + (z + m_Twister.myRand()) * deltaZ);
                     vector3 dir = lp - pi;
                     float ldist = LENGTH(dir);
                     dir *= 1.0f / ldist;
                     vector3 origin = pi + dir * EPSILON;
-                    Primitive *prim = findNearest(light, Ray(origin, dir), tdist);
+                    Primitive *prim;
+                    Ray ray = Ray(origin, dir);
+                    FindNearest(ray, tdist, prim);
                     if (prim == light) {
                         shade += 1.0f / 16;
                     }
@@ -283,14 +295,157 @@ namespace Raytracer {
         return true;
     }
 
-    Primitive *Engine::findNearest(Primitive *light, Ray r, float tdist) {
-        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
-            Primitive *prim = m_Scene->GetPrimitive(s);
-            if ((prim != light)
-                    && (prim->Intersect(r, tdist))) {
-                return prim;
+    int Engine::FindNearest(Ray &a_Ray, float &a_Dist, Primitive *&a_Prim) {
+        int retval = MISS;
+        vector3 raydir, curpos;
+        Box e = m_Scene->GetExtends();
+        curpos = a_Ray.GetOrigin();
+        raydir = a_Ray.GetDirection();
+        // setup 3DDDA (double check reusability of primary ray data)
+        vector3 cb, tmax, tdelta, cell;
+        cell = (curpos - e.GetPos()) * m_SR;
+        int stepX, outX, X = (int) cell.x;
+        int stepY, outY, Y = (int) cell.y;
+        int stepZ, outZ, Z = (int) cell.z;
+        if ((X < 0) || (X >= GRIDSIZE) || (Y < 0) || (Y >= GRIDSIZE) || (Z < 0) || (Z >= GRIDSIZE)) return 0;
+        if (raydir.x > 0) {
+            stepX = 1, outX = GRIDSIZE;
+            cb.x = e.GetPos().x + (X + 1) * m_CW.x;
+        }
+        else {
+            stepX = -1, outX = -1;
+            cb.x = e.GetPos().x + X * m_CW.x;
+        }
+        if (raydir.y > 0.0f) {
+            stepY = 1, outY = GRIDSIZE;
+            cb.y = e.GetPos().y + (Y + 1) * m_CW.y;
+        }
+        else {
+            stepY = -1, outY = -1;
+            cb.y = e.GetPos().y + Y * m_CW.y;
+        }
+        if (raydir.z > 0.0f) {
+            stepZ = 1, outZ = GRIDSIZE;
+            cb.z = e.GetPos().z + (Z + 1) * m_CW.z;
+        }
+        else {
+            stepZ = -1, outZ = -1;
+            cb.z = e.GetPos().z + Z * m_CW.z;
+        }
+        float rxr, ryr, rzr;
+        if (raydir.x != 0) {
+            rxr = 1.0f / raydir.x;
+            tmax.x = (cb.x - curpos.x) * rxr;
+            tdelta.x = m_CW.x * stepX * rxr;
+        }
+        else tmax.x = 1000000;
+        if (raydir.y != 0) {
+            ryr = 1.0f / raydir.y;
+            tmax.y = (cb.y - curpos.y) * ryr;
+            tdelta.y = m_CW.y * stepY * ryr;
+        }
+        else tmax.y = 1000000;
+        if (raydir.z != 0) {
+            rzr = 1.0f / raydir.z;
+            tmax.z = (cb.z - curpos.z) * rzr;
+            tdelta.z = m_CW.z * stepZ * rzr;
+        }
+        else tmax.z = 1000000;
+        // start stepping
+        ObjectList *list = 0;
+        ObjectList **grid = m_Scene->GetGrid();
+        a_Prim = 0;
+        // trace primary ray
+        while (1) {
+            list = grid[X + (Y << GRIDSHFT) + (Z << (GRIDSHFT * 2))];
+            while (list) {
+                Primitive *pr = list->GetPrimitive();
+                int result;
+                if (pr->GetLastRayID() != a_Ray.GetID()) if (result = pr->Intersect(a_Ray, a_Dist)) {
+                    retval = result;
+                    a_Prim = pr;
+                    goto testloop;
+                }
+                list = list->GetNext();
+            }
+            if (tmax.x < tmax.y) {
+                if (tmax.x < tmax.z) {
+                    X = X + stepX;
+                    if (X == outX) return MISS;
+                    tmax.x += tdelta.x;
+                }
+                else {
+                    Z = Z + stepZ;
+                    if (Z == outZ) return MISS;
+                    tmax.z += tdelta.z;
+                }
+            }
+            else {
+                if (tmax.y < tmax.z) {
+                    Y = Y + stepY;
+                    if (Y == outY) return MISS;
+                    tmax.y += tdelta.y;
+                }
+                else {
+                    Z = Z + stepZ;
+                    if (Z == outZ) return MISS;
+                    tmax.z += tdelta.z;
+                }
             }
         }
-        return light;
+        testloop:
+        while (1) {
+            list = grid[X + (Y << GRIDSHFT) + (Z << (GRIDSHFT * 2))];
+            while (list) {
+                Primitive *pr = list->GetPrimitive();
+                int result;
+                if (pr->GetLastRayID() != a_Ray.GetID()) if (result = pr->Intersect(a_Ray, a_Dist)) {
+                    a_Prim = pr;
+                    retval = result;
+                }
+                list = list->GetNext();
+            }
+            if (tmax.x < tmax.y) {
+                if (tmax.x < tmax.z) {
+                    if (a_Dist < tmax.x) break;
+                    X = X + stepX;
+                    if (X == outX) break;
+                    tmax.x += tdelta.x;
+                }
+                else {
+                    if (a_Dist < tmax.z) break;
+                    Z = Z + stepZ;
+                    if (Z == outZ) break;
+                    tmax.z += tdelta.z;
+                }
+            }
+            else {
+                if (tmax.y < tmax.z) {
+                    if (a_Dist < tmax.y) break;
+                    Y = Y + stepY;
+                    if (Y == outY) break;
+                    tmax.y += tdelta.y;
+                }
+                else {
+                    if (a_Dist < tmax.z) break;
+                    Z = Z + stepZ;
+                    if (Z == outZ) break;
+                    tmax.z += tdelta.z;
+                }
+            }
+        }
+        return retval;
     }
+
+
+//    Primitive *Engine::findNearest(Primitive *light, Ray r, float tdist) {
+//        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
+//            Primitive *prim = m_Scene->GetPrimitive(s);
+//            if ((prim != light)
+//                && (prim->Intersect(r, tdist))) {
+//                return prim;
+//            }
+//        }
+//        return light;
+//    }
 }; // namespace Raytracer

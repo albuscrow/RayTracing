@@ -82,12 +82,13 @@ namespace Raytracer {
         Pixel *m_Dest;
         int m_Width, m_Height, m_CurrLine, m_PPos;
         Primitive **m_LastRow;
-        float calShade(Primitive *light, const float tdist,const vector3 &pi, vector3 &L);
-        Primitive *findNearest(Primitive *, Ray, float);
+        float calShade(Primitive *light, float tdist,const vector3 &pi, vector3 &L);
+//        Primitive *findNearest(Primitive *, Ray, float);
+        int FindNearest(Ray &a_Ray, float &a_Dist, Primitive *&a_Prim);
         Twister m_Twister;
+        vector3 m_SR, m_CW;
 
     signals:
-
         void updateScreenSignal(Pixel *);
 
     };

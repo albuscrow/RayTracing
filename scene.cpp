@@ -173,6 +173,7 @@ namespace Raytracer {
         }
         // set number of primitives
         m_Primitives = prim;
+        BuildGrid();
     }
 
 
@@ -220,8 +221,8 @@ namespace Raytracer {
             if (dist[i] > 0) {
                 ip[i] = o + dist[i] * d;
                 if ((ip[i].x > (v1.x - EPSILON)) && (ip[i].x < (v2.x + EPSILON)) &&
-                        (ip[i].y > (v1.y - EPSILON)) && (ip[i].y < (v2.y + EPSILON)) &&
-                        (ip[i].z > (v1.z - EPSILON)) && (ip[i].z < (v2.z + EPSILON))) {
+                    (ip[i].y > (v1.y - EPSILON)) && (ip[i].y < (v2.y + EPSILON)) &&
+                    (ip[i].z > (v1.z - EPSILON)) && (ip[i].z < (v2.z + EPSILON))) {
                     if (dist[i] < a_Dist) {
                         a_Dist = dist[i];
                         retval = HIT;
@@ -282,4 +283,98 @@ namespace Raytracer {
     }
 
 
+    void Scene::BuildGrid() {
+        // initialize regular grid
+        m_Grid = new ObjectList *[GRIDSIZE * GRIDSIZE * GRIDSIZE];
+        memset(m_Grid, 0, GRIDSIZE * GRIDSIZE * GRIDSIZE * 4);
+        vector3 p1(-14, -5, -6), p2(14, 8, 30);
+        // calculate cell width, height and depth
+        float dx = (p2.x - p1.x) / GRIDSIZE, dx_reci = 1.0f / dx;
+        float dy = (p2.y - p1.y) / GRIDSIZE, dy_reci = 1.0f / dy;
+        float dz = (p2.z - p1.z) / GRIDSIZE, dz_reci = 1.0f / dz;
+        m_Extends = aabb(p1, p2 - p1);
+        m_Light = new Primitive *[MAXLIGHTS];
+        m_Lights = 0;
+        // store primitives in the grid cells
+        for (int p = 0; p < m_Primitives; p++) {
+            if (m_Primitive[p]->IsLight()) m_Light[m_Lights++] = m_Primitive[p];
+            aabb bound = m_Primitive[p]->GetAABB();
+            vector3 bv1 = bound.GetPos(), bv2 = bound.GetPos() + bound.GetSize();
+            // find out which cells could contain the primitive (based on aabb)
+            int x1 = (int) ((bv1.x - p1.x) * dx_reci), x2 = (int) ((bv2.x - p1.x) * dx_reci) + 1;
+            x1 = (x1 < 0) ? 0 : x1, x2 = (x2 > (GRIDSIZE - 1)) ? GRIDSIZE - 1 : x2;
+            int y1 = (int) ((bv1.y - p1.y) * dy_reci), y2 = (int) ((bv2.y - p1.y) * dy_reci) + 1;
+            y1 = (y1 < 0) ? 0 : y1, y2 = (y2 > (GRIDSIZE - 1)) ? GRIDSIZE - 1 : y2;
+            int z1 = (int) ((bv1.z - p1.z) * dz_reci), z2 = (int) ((bv2.z - p1.z) * dz_reci) + 1;
+            z1 = (z1 < 0) ? 0 : z1, z2 = (z2 > (GRIDSIZE - 1)) ? GRIDSIZE - 1 : z2;
+            // loop over candidate cells
+            for (int x = x1; x < x2; x++) {
+                for (int y = y1; y < y2; y++) {
+                    for (int z = z1; z < z2; z++) {
+                        // construct aabb for current cell
+                        int idx = x + y * GRIDSIZE + z * GRIDSIZE * GRIDSIZE;
+                        vector3 pos(p1.x + x * dx, p1.y + y * dy, p1.z + z * dz);
+                        aabb cell(pos, vector3(dx, dy, dz));
+                        // do an accurate aabb / primitive intersection test
+                        if (m_Primitive[p]->IntersectBox(cell)) {
+                            // object intersects cell; add to object list
+                            ObjectList *l = new ObjectList();
+                            l->SetPrimitive(m_Primitive[p]);
+                            l->SetNext(m_Grid[idx]);
+                            m_Grid[idx] = l;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    bool Sphere::IntersectBox(aabb &a_Box) {
+        float dmin = 0;
+        vector3 v1 = a_Box.GetPos(), v2 = a_Box.GetPos() + a_Box.GetSize();
+        if (m_Centre.x < v1.x) {
+            dmin = dmin + (m_Centre.x - v1.x) * (m_Centre.x - v1.x);
+        } else if (m_Centre.x > v2.x) {
+            dmin = dmin + (m_Centre.x - v2.x) * (m_Centre.x - v2.x);
+        }
+        if (m_Centre.y < v1.y) {
+            dmin = dmin + (m_Centre.y - v1.y) * (m_Centre.y - v1.y);
+        } else if (m_Centre.y > v2.y) {
+            dmin = dmin + (m_Centre.y - v2.y) * (m_Centre.y - v2.y);
+        }
+        if (m_Centre.z < v1.z) {
+            dmin = dmin + (m_Centre.z - v1.z) * (m_Centre.z - v1.z);
+        } else if (m_Centre.z > v2.z) {
+            dmin = dmin + (m_Centre.z - v2.z) * (m_Centre.z - v2.z);
+        }
+        return (dmin <= m_SqRadius);
+
+    }
+
+
+    /**
+     * 通过判断8个点是否在同一侧来求交
+     */
+    bool PlanePrim::IntersectBox(aabb &a_Box) {
+        vector3 v[2];
+        v[0] = a_Box.GetPos(), v[1] = a_Box.GetPos() + a_Box.GetSize();
+        int side1 = 0, side2 = 0;
+        for (int i = 0; i < 8; i++) {
+            vector3 p(v[i & 1].x, v[(i >> 1) & 1].y, v[(i >> 2) & 1].z);
+            if ((DOT(p, m_Plane.N) + m_Plane.D) < 0)
+                side1++;
+            else
+                side2++;
+        }
+        return !(side1 == 0 || (side2 == 0));
+    }
+
+    Box Scene::GetExtends() {
+        return m_Extends;
+    }
+
+    ObjectList **Scene::GetGrid() {
+        return m_Grid;
+    }
 }; // namespace Raytracer

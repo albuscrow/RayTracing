@@ -16,6 +16,8 @@ namespace Raytracer {
 #define MISS     0        // Ray missed primitive
 #define INPRIM    -1        // Ray started inside primitive
 
+#define MAXLIGHTS    10
+
 // -----------------------------------------------------------
 // Material class definition
 // -----------------------------------------------------------
@@ -121,11 +123,13 @@ namespace Raytracer {
             m_Material = a_Mat;
         }
 
-        Primitive() : m_Name( 0 ), m_Light( false ), m_RayID( -1 ) {};
+        Primitive() : m_Name(0), m_Light(false), m_RayID(-1) { };
 
         virtual int GetType() = 0;
 
         virtual int Intersect(Ray &a_Ray, float &a_Dist) = 0;
+
+        virtual bool IntersectBox(aabb &a_Box) = 0;
 
         virtual vector3 GetNormal(vector3 &a_Pos) = 0;
 
@@ -152,6 +156,7 @@ namespace Raytracer {
         int GetLastRayID() {
             return m_RayID;
         }
+
 
     protected:
         Material m_Material;
@@ -184,6 +189,7 @@ namespace Raytracer {
         }
 
         int Intersect(Ray &a_Ray, float &a_Dist);
+        bool IntersectBox(aabb &a_Box);
 
         vector3 GetNormal(vector3 &a_Pos) {
             return (a_Pos - m_Centre) * m_RRadius;
@@ -218,12 +224,13 @@ namespace Raytracer {
         }
 
         int Intersect(Ray &a_Ray, float &a_Dist);
+        bool IntersectBox(aabb &a_Box);
 
         vector3 GetNormal(vector3 &a_Pos);
 
         aabb GetAABB() {
-            vector3 pos = vector3( -10000, -10000, -10000 );
-            vector3 size = vector3( 20000, 20000, 20000 );
+            vector3 pos = vector3(-10000, -10000, -10000);
+            vector3 size = vector3(20000, 20000, 20000);
             return aabb(pos, size);
         }
 
@@ -285,6 +292,25 @@ namespace Raytracer {
     };
 
 
+    class ObjectList {
+    public:
+        ObjectList() : m_Primitive(0), m_Next(0) { }
+
+        ~ObjectList() { delete m_Next; }
+
+        void SetPrimitive(Primitive *a_Prim) { m_Primitive = a_Prim; }
+
+        Primitive *GetPrimitive() { return m_Primitive; }
+
+        void SetNext(ObjectList *a_Next) { m_Next = a_Next; }
+
+        ObjectList *GetNext() { return m_Next; }
+
+    private:
+        Primitive *m_Primitive;
+        ObjectList *m_Next;
+    };
+
 // -----------------------------------------------------------
 // Scene class definition
 // -----------------------------------------------------------
@@ -306,9 +332,19 @@ namespace Raytracer {
             return m_Primitive[a_Idx];
         }
 
+        void BuildGrid();
+
+        Box GetExtends();
+
+        ObjectList **GetGrid();
+
     private:
-        int m_Primitives;
-        Primitive **m_Primitive;
+        int m_Primitives, m_Lights;
+        Primitive **m_Primitive, **m_Light;
+        ObjectList **m_Grid;
+        aabb m_Extends;
+
+
     };
 
 }; // namespace Raytracer
