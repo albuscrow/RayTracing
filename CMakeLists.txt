@@ -3,7 +3,7 @@ project(ray_tracing)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-file(GLOB_RECURSE SRC_FILES *.cpp)
+file(GLOB SRC_FILES *.cpp)
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)

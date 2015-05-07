@@ -21,7 +21,7 @@ namespace Raytracer {
         Ray() : m_Origin(vector3(0, 0, 0)), m_Direction(vector3(0, 0, 0)) {
         };
 
-        Ray(const vector3 &a_Origin,const vector3 &a_Dir);
+        Ray(const vector3 &a_Origin,const vector3 &a_Dir, const int &id);
 
         void SetOrigin(const vector3 &a_Origin) {
             m_Origin = a_Origin;
@@ -83,10 +83,13 @@ namespace Raytracer {
         int m_Width, m_Height, m_CurrLine, m_PPos;
         Primitive **m_LastRow;
         float calShade(Primitive *light, float tdist,const vector3 &pi, vector3 &L);
-//        Primitive *findNearest(Primitive *, Ray, float);
+        int findNearest(Ray, float, Primitive *&);
         int FindNearest(Ray &a_Ray, float &a_Dist, Primitive *&a_Prim);
+        Primitive *findNearest(Primitive *light, Ray r, float tdist);
         Twister m_Twister;
         vector3 m_SR, m_CW;
+        int m_currId = 0;
+        float m_SScale;
 
     signals:
         void updateScreenSignal(Pixel *);

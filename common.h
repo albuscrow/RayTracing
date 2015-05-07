@@ -25,9 +25,10 @@ namespace Raytracer {
 #define SQRDISTANCE(A, B) ((A.x-B.x)*(A.x-B.x)+(A.y-B.y)*(A.y-B.y)+(A.z-B.z)*(A.z-B.z))
 
 
+#define SAMPLES			128
 #define GRIDSIZE		8
 #define GRIDSHFT		3
-#define EPSILON            0.1f
+#define EPSILON            0.001f
 #define TRACEDEPTH        6
 
 #define PI                3.141592653589793238462f

@@ -13,9 +13,10 @@ using Raytracer::vector3;
 
 namespace Raytracer {
 
-    Ray::Ray(const vector3 &a_Origin, const vector3 &a_Dir) :
+    Ray::Ray(const vector3 &a_Origin, const vector3 &a_Dir, const int &id) :
             m_Origin(a_Origin),
-            m_Direction(a_Dir) {
+            m_Direction(a_Dir),
+            m_ID(id) {
     }
 
     Engine::Engine() {
@@ -59,26 +60,31 @@ namespace Raytracer {
         vector3 pi;
 
         Primitive *prim = nullptr;
-        int result;
-        // find the nearest intersection
-        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
-            Primitive *pr = m_Scene->GetPrimitive(s);
-            int res;
-            if (res = pr->Intersect(a_Ray, a_Dist)) {
-                prim = pr;
-                result = res; // 0 = miss, 1 = hit, -1 = hit from inside primitive
-            }
-        }
 
-        // no hit, terminate ray
-        if (!prim) {
+        // find the nearest intersection
+        int result;
+        if (!(result = FindNearest(a_Ray, a_Dist, prim))) {
+            a_Acc = Color(1, 0, 0);
             return 0;
         }
+//        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
+//            Primitive *pr = m_Scene->GetPrimitive(s);
+//            int res;
+//            if (res = pr->Intersect(a_Ray, a_Dist)) {
+//                prim = pr;
+//                result = res; // 0 = miss, 1 = hit, -1 = hit from inside primitive
+//            }
+//        }
+//
+//        // no hit, terminate ray
+//        if (!prim) {
+//            return 0;
+//        }
 
         // handle intersection
         if (prim->IsLight()) {
             // we hit a light, stop tracing
-            a_Acc = Color(1, 1, 1);
+            a_Acc = prim->getMaterial()->GetColor();
         } else {
 
             // determine color at point of intersection
@@ -127,13 +133,36 @@ namespace Raytracer {
             //reflect
             float refl = prim->getMaterial()->GetReflection();
             if (refl > 0.0f) {
-                Color rcol(0, 0, 0);
+                float drefl = prim->getMaterial()->getDiffuseRefl();
                 vector3 R = V - 2.0f * DOT(V, N) * N;
-                vector3 origin = pi + R * EPSILON;
-                Ray ray = Ray(origin, R);
-                float dist;
-                Raytrace(ray, rcol, a_Depth + 1, a_RIndex, dist);
-                a_Acc += refl * rcol * prim->getMaterial()->GetColor();
+                if (drefl > 0 && a_Depth < 2) {
+                    vector3 R = V - 2.0f * DOT(V, N) * N;
+                    vector3 RN1 = vector3(R.z, R.y, -R.x);
+                    vector3 RN2 = R.Cross(RN1);
+                    refl *= m_SScale;
+                    for (int i = 0; i < SAMPLES; ++i) {
+                        float xoffs, yoffs;
+                        do {
+                            xoffs = m_Twister.myRand() * refl;
+                            yoffs = m_Twister.myRand() * refl;
+                        } while ((xoffs * xoffs + yoffs * yoffs) > refl * refl);
+                        vector3 R2 = R + RN1 * xoffs + RN2 * yoffs * drefl;
+                        NORMALIZE(R2);
+                        float dist;
+                        Color rcol(0, 0, 0);
+                        Raytrace(Ray(pi + R2 * EPSILON, R2, ++m_currId), rcol, a_Depth + 1, a_RIndex, dist);
+                        a_Acc += refl * rcol * prim->getMaterial()->GetColor();
+                    }
+
+                } else {
+                    Color rcol(0, 0, 0);
+                    float dist;
+                    vector3 origin = pi + R * EPSILON;
+                    Ray ray = Ray(origin, R, ++m_currId);
+                    Raytrace(ray, rcol, a_Depth + 1, a_RIndex, dist);
+                    a_Acc += refl * rcol * prim->getMaterial()->GetColor();
+                }
+
             }
 
             float refr = prim->getMaterial()->getRefraction();
@@ -147,7 +176,7 @@ namespace Raytracer {
                     vector3 T = (n * V) + (n * cosI - sqrt(cosT2)) * N;
                     Color rcol;
                     vector3 d = pi + T * EPSILON;
-                    Ray ray = Ray(d, T);
+                    Ray ray = Ray(d, T, ++m_currId);
                     float dist;
                     Raytrace(ray, rcol, a_Depth + 1, rindex, dist);
                     Color absorbance = prim->getMaterial()->GetColor() * 0.15f * -dist;
@@ -168,9 +197,10 @@ namespace Raytracer {
         Primitive *prim;
         if (light->GetType() == Primitive::SPHERE) {
             vector3 d = pi + L * EPSILON;
-            Ray r(d, L);
+            Ray r(d, L, m_currId);
             Primitive *prim;
             FindNearest(r, tdist, prim);
+//            prim = findNearest(light, r, tdist);
             if (prim != light) {
                 shade = 0;
             }
@@ -180,22 +210,47 @@ namespace Raytracer {
             L = b->GetPos() + 0.5f * b->GetSize() - pi;
             NORMALIZE(L);
 
+
+            float deltax = b->GetSize().x * 0.25f, deltay = b->GetSize().z * 0.25f;
+//            std::cout << "xMin:" << b->GetPos().x;
+//            std::cout << " yMin:" << b->GetPos().y;
+//            std::cout << " zMin:" << b->GetPos().z << std::endl;
+//
+//            std::cout << " xMax:" << b->GetPos().x + b->GetSize().x;
+//            std::cout << " yMax:" << b->GetPos().y + b->GetSize().y;
+//            std::cout << " zMax:" << b->GetPos().z + b->GetSize().z << std::endl;
+//            for (int i = 0; i < SAMPLES; i++) {
+//                vector3 lp(b->GetGridX(i & 15) + m_Twister.myRand() * deltax, b->GetPos().y,
+//                           b->GetGridY(i & 15) + m_Twister.myRand() * deltay);
+//
+//                vector3 dir = lp - pi;
+//                float ldist = LENGTH(dir);
+//                dir *= 1.0f / ldist;
+//                Ray ray = Ray(pi + dir * EPSILON, dir, ++m_currId);
+//                if (findNearest(ray, ldist, prim)) {
+//                    if (prim == light) {
+//                        shade += m_SScale;
+//                    }
+//                }
+//            }
+
             float deltaX = b->GetSize().x / 4;
             float deltaZ = b->GetSize().z / 4;
 
-            for (int x = 0; x < 4; ++x) {
-                for (int z = 0; z < 4; ++z) {
-                    vector3 lp(b->GetPos().x + (x + m_Twister.myRand()) * deltaX, b->GetPos().y,
+            for (int x = 0; x < 6; ++x) {
+                for (int z = 0; z < 6; ++z) {
+                    vector3 lp(b->GetPos().x + (x + m_Twister.myRand()) * deltaX,
+                               b->GetPos().y,
                                b->GetPos().z + (z + m_Twister.myRand()) * deltaZ);
                     vector3 dir = lp - pi;
                     float ldist = LENGTH(dir);
                     dir *= 1.0f / ldist;
                     vector3 origin = pi + dir * EPSILON;
-                    Primitive *prim;
-                    Ray ray = Ray(origin, dir);
-                    FindNearest(ray, tdist, prim);
+                    Ray ray = Ray(origin, dir, ++m_currId);
+                    FindNearest(ray, ldist, prim);
+//                    prim = findNearest(light, ray, tdist);
                     if (prim == light) {
-                        shade += 1.0f / 16;
+                        shade += 1.0f / 36;
                     }
                 }
             }
@@ -223,6 +278,8 @@ namespace Raytracer {
         // allocate space to store pointers to primitives for previous line
         m_LastRow = new Primitive *[m_Width];
         memset(m_LastRow, 0, m_Width * 4);
+
+        m_SScale = 1.0f / SAMPLES;
     }
 
 
@@ -247,7 +304,7 @@ namespace Raytracer {
                 Color acc(0, 0, 0);
                 vector3 dir = vector3(m_SX, m_SY, 0) - o;
                 NORMALIZE(dir);
-                Ray r(o, dir);
+                Ray r(o, dir, ++m_currId);
                 float dist;
                 Primitive *prim = Raytrace(r, acc, 1, 1.0f, dist);
                 int red;
@@ -264,7 +321,7 @@ namespace Raytracer {
                         for (int ty = -1; ty < 2; ty++) {
                             vector3 dir = vector3(m_SX + m_DX * tx / 2.0f, m_SY + m_DY * ty / 2.0f, 0) - o;
                             NORMALIZE(dir);
-                            Ray r(o, dir);
+                            Ray r(o, dir, m_currId);
                             float dist;
                             Primitive *prim = Raytrace(r, acc, 1, 1.0f, dist);
                         }
@@ -399,9 +456,11 @@ namespace Raytracer {
             while (list) {
                 Primitive *pr = list->GetPrimitive();
                 int result;
-                if (pr->GetLastRayID() != a_Ray.GetID()) if (result = pr->Intersect(a_Ray, a_Dist)) {
-                    a_Prim = pr;
-                    retval = result;
+                if (pr->GetLastRayID() != a_Ray.GetID()) {
+                    if (result = pr->Intersect(a_Ray, a_Dist)) {
+                        a_Prim = pr;
+                        retval = result;
+                    }
                 }
                 list = list->GetNext();
             }
@@ -434,18 +493,31 @@ namespace Raytracer {
                 }
             }
         }
+
         return retval;
     }
 
+    int Engine::findNearest(Ray r, float tdist, Primitive *&prim) {
+        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
+            Primitive *tempPrim = m_Scene->GetPrimitive(s);
+            if (tempPrim->Intersect(r, tdist)) {
+                prim = tempPrim;
+                return HIT;
+            }
+        }
+        return MISS;
+    }
 
-//    Primitive *Engine::findNearest(Primitive *light, Ray r, float tdist) {
-//        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
-//            Primitive *prim = m_Scene->GetPrimitive(s);
-//            if ((prim != light)
-//                && (prim->Intersect(r, tdist))) {
-//                return prim;
-//            }
-//        }
-//        return light;
-//    }
+    Primitive *Engine::findNearest(Primitive *light, Ray r, float tdist) {
+        for (int s = 0; s < m_Scene->GetNrPrimitives(); ++s) {
+            Primitive *prim = m_Scene->GetPrimitive(s);
+            if ((prim != light)
+                && (prim->Intersect(r, tdist))) {
+                return prim;
+            }
+        }
+        return light;
+    }
+
+
 }; // namespace Raytracer

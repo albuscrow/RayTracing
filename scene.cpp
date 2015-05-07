@@ -105,6 +105,10 @@ namespace Raytracer {
         m_Primitive[0]->getMaterial()->setRefraction(0.0f);
         m_Primitive[0]->getMaterial()->SetDiffuse(1.0f);
         m_Primitive[0]->getMaterial()->setColor(Color(0.4f, 0.3f, 0.3f));
+
+
+
+
         // big sphere
         m_Primitive[1] = new Sphere(vector3(2, 0.8f, 3), 2.5f);
         m_Primitive[1]->SetName("big sphere");
@@ -121,7 +125,15 @@ namespace Raytracer {
         m_Primitive[2]->getMaterial()->SetDiffuse(0.1f);
         m_Primitive[2]->getMaterial()->setColor(Color(0.7f, 0.7f, 1.0f));
         // light source 1
-        m_Primitive[3] = new Sphere(vector3(0, 5, 5), 0.1f);
+        m_Primitive[3] = new Sphere(vector3(2, 5, 5), 0.1f);
+
+        m_Primitive[3]->SetName("small sphere");
+//        m_Primitive[3]->getMaterial()->setReflection(0.5f);
+//        m_Primitive[3]->getMaterial()->setRefraction(0.0f);
+//        m_Primitive[3]->getMaterial()->setRefrIndex(1.3f);
+//        m_Primitive[3]->getMaterial()->SetDiffuse(0.1f);
+//        m_Primitive[3]->getMaterial()->setColor(Color(0.7f, 0.7f, 1.0f));
+
         m_Primitive[3]->Light(true);
         m_Primitive[3]->getMaterial()->setColor(Color(0.4f, 0.4f, 0.4f));
         // light source 2
@@ -130,6 +142,13 @@ namespace Raytracer {
         m_Primitive[4] = new Box(aabb1);
         m_Primitive[4]->Light(true);
         m_Primitive[4]->getMaterial()->setColor(Color(1, 1, 1));
+
+
+//        m_Primitive[4] = new Sphere(vector3(-1.5f, -3.8f, 1), 1.5f);
+//        m_Primitive[4]->SetName("extra sphere");
+//        m_Primitive[4]->getMaterial()->setReflection(0.0f);
+//        m_Primitive[4]->getMaterial()->setRefraction(0.8f);
+//        m_Primitive[4]->getMaterial()->setColor(Color(1.0f, 0.4f, 0.4f));
 
 
 //        m_Primitive[4] = new Sphere(vector3(-3, 5, 1), 0.1f);
@@ -157,8 +176,32 @@ namespace Raytracer {
         m_Primitive[7]->getMaterial()->SetSpecular(0);
         m_Primitive[7]->getMaterial()->SetDiffuse(0.5f);
         m_Primitive[7]->getMaterial()->setColor(Color(0.4f, 0.7f, 0.7f));
+
+
+        m_Primitive[8] = new PlanePrim(vector3(-1, 0, 0), 10.0f);
+        m_Primitive[8]->SetName("planeleft");
+        m_Primitive[8]->getMaterial()->setReflection(0.0f);
+        m_Primitive[8]->getMaterial()->setRefraction(0.0f);
+        m_Primitive[8]->getMaterial()->SetDiffuse(1.0f);
+        m_Primitive[8]->getMaterial()->setColor(Color(0.4f, 0.3f, 0.7f));
+
+        m_Primitive[9] = new PlanePrim(vector3(1, 0, 0), 10.0f);
+        m_Primitive[9]->SetName("planeright");
+        m_Primitive[9]->getMaterial()->setReflection(0.0f);
+        m_Primitive[9]->getMaterial()->setRefraction(0.0f);
+        m_Primitive[9]->getMaterial()->SetDiffuse(1.0f);
+        m_Primitive[9]->getMaterial()->setColor(Color(0.4f, 0.2f, 0.4f));
+
+
+//        m_Primitive[10] = new PlanePrim(vector3(0, 0, 1), 2.0f);
+//        m_Primitive[10]->SetName("planeright");
+//        m_Primitive[10]->getMaterial()->setReflection(0.0f);
+//        m_Primitive[10]->getMaterial()->setRefraction(0.0f);
+//        m_Primitive[10]->getMaterial()->SetDiffuse(1.0f);
+//        m_Primitive[10]->getMaterial()->setColor(Color(0.4f, 0.6f, 0.4f));
+
         // grid
-        int prim = 8;
+        int prim = 10;
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 7; y++) {
                 m_Primitive[prim] = new Sphere(vector3(-4.5f + x * 1.5f, -4.3f + y * 1.5f, 10), 0.3f);
@@ -287,7 +330,7 @@ namespace Raytracer {
         // initialize regular grid
         m_Grid = new ObjectList *[GRIDSIZE * GRIDSIZE * GRIDSIZE];
         memset(m_Grid, 0, GRIDSIZE * GRIDSIZE * GRIDSIZE * 4);
-        vector3 p1(-14, -5, -6), p2(14, 8, 30);
+        vector3 p1(-14, -5, -6), p2(14, 15, 30);
         // calculate cell width, height and depth
         float dx = (p2.x - p1.x) / GRIDSIZE, dx_reci = 1.0f / dx;
         float dy = (p2.y - p1.y) / GRIDSIZE, dy_reci = 1.0f / dy;
